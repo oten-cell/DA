@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>黑騎士壓血計算機</title>
 <style>
-  body { background:#12151c; color:#e6edf3; font-family:"Microsoft JhengHei",sans-serif; padding:20px; max-width:860px; margin:auto; }
+  body { background:#12151c; color:#e6edf3; font-family:"Microsoft JhengHei",sans-serif; padding:20px; max-width:900px; margin:auto; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin-bottom:15px; }
   .card { background:#1c212b; border:1px solid #2e3646; border-radius:8px; padding:15px; margin-bottom:15px; }
   h2 { font-size:1rem; color:#58a6ff; margin:0 0 10px; border-bottom:1px solid #2e3646; padding-bottom:6px; }
@@ -15,7 +15,7 @@
   .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:10px; margin-bottom:12px; }
   .box { background:#0d1117; border:1px solid #2e3646; border-radius:6px; padding:10px; }
   .val { font-size:1.15rem; font-weight:bold; margin-top:4px; }
-  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
   th, td { padding:9px 6px; text-align:left; border-bottom:1px solid #2e3646; }
   .safe { color:#3fb950; } .warn { color:#d29922; } .danger { color:#f85149; } .accent { color:#f78166; }
   .alert { background:rgba(248,81,73,0.12); border-left:4px solid #f85149; padding:10px; border-radius:4px; font-size:0.88rem; }
@@ -40,14 +40,10 @@
       <div class="hint" id="hbStatus"></div>
     </div>
     <div class="card">
-      <h2>2. 怪物與輸出流派設定</h2>
-      <label>輸出控血模式</label>
-      <select id="playMode">
-        <option value="roarFirst" selected>龍咆哮先扣血後出傷（全程吼）</option>
-        <option value="alwaysZerk">全程壓血（槍連/吼常駐黑力）</option>
-      </select>
+      <h2>2. 怪物與技能規則</h2>
       <label>怪物單次最高傷害</label><input type="number" id="mobDmg" value="3782">
       <label>黑暗力量上限（%）</label><input type="number" id="zerkPct" value="55">
+      <label>防搶補規則（固定）</label><input type="text" value="補滿後最高血量必須 ≤ 黑力觸發線" readonly>
     </div>
     <div class="card">
       <h2>3. 實戰安全緩衝微調</h2>
@@ -55,9 +51,9 @@
       <label>闇靈治癒防溢補緩衝（HP）</label><input type="number" id="beholderBuffer" value="200">
     </div>
   </div>
-  <div class="card"><h2>4. 計算結果</h2><div class="stats" id="summaryGrid"></div><div id="adviceBox"></div></div>
-  <div class="card"><h2>5. 藥水與寵物拉桿推薦表</h2>
-    <table><thead><tr><th>藥水</th><th>補量</th><th>最高觸發血量</th><th>建議拉桿</th><th>補滿最高血量</th><th>評估</th></tr></thead><tbody id="potionTable"></tbody></table>
+  <div class="card"><h2>4. 關鍵生死線計算結果</h2><div class="stats" id="summaryGrid"></div><div id="adviceBox"></div></div>
+  <div class="card"><h2>5. 各款補品與寵物拉桿設定表（防出傷前搶補溢補）</h2>
+    <table><thead><tr><th>補品名稱</th><th>單瓶補量</th><th>安全寵物拉桿</th><th>寵物連喝停駐區間</th><th>實戰評估</th></tr></thead><tbody id="potionTable"></tbody></table>
   </div>
 <script>
 const potions = [
@@ -72,7 +68,6 @@ function calc() {
   const baseHp = +document.getElementById('baseHp').value || 0;
   const equipHp = +document.getElementById('equipHp').value || 0;
   const rebirthPct = +document.getElementById('rebirthPct').value || 0;
-  const playMode = document.getElementById('playMode').value;
 
   const pureHp = Math.max(0, (baseHp - equipHp) / (1 + rebirthPct / 100));
   const hbBonus = Math.round((pureHp + equipHp) * 0.6);
@@ -86,39 +81,48 @@ function calc() {
   const sBuf = +document.getElementById('surviveBuffer').value || 0;
   const bBuf = +document.getElementById('beholderBuffer').value || 0;
 
-  const zerkRawMax = Math.floor(hbHp * zerkPct / 100);
+  const zerkMax = Math.floor(hbHp * zerkPct / 100);
   const roarMin = Math.ceil(baseHp * 0.5);
   const roarCost = Math.floor(baseHp * 0.3);
-  const effectiveCeiling = playMode === 'roarFirst' ? (zerkRawMax + roarCost) : zerkRawMax;
   const surviveMin = mobDmg + sBuf;
   const safeRoar = Math.max(roarMin, roarCost + surviveMin);
 
   document.getElementById('summaryGrid').innerHTML = `
-    <div class="box"><small>${playMode === 'roarFirst' ? '吼前觸發黑力上限' : '常駐黑力上限'}</small><div class="val accent">${effectiveCeiling} HP</div></div>
+    <div class="box"><small>黑力硬上限（${zerkPct}%）</small><div class="val accent">${zerkMax} HP</div></div>
     <div class="box"><small>單次防秒殺底線</small><div class="val danger">${surviveMin} HP</div></div>
     <div class="box"><small>咆哮門檻 / 消耗</small><div class="val warn">${roarMin} / -${roarCost}</div></div>
-    <div class="box"><small>安全起吼血量</small><div class="val safe">${safeRoar} HP</div></div>
+    <div class="box"><small>安全起吼最低血量</small><div class="val safe">${safeRoar} HP</div></div>
   `;
 
-  document.getElementById('adviceBox').innerHTML = safeRoar > effectiveCeiling
-    ? `<div class="alert">⚠️ 安全起吼線（${safeRoar}）已超過上限（${effectiveCeiling}），此圖請改用槍連擊/無雙矛！</div>`
-    : `<div class="okbox">✅ <b>${playMode === 'roarFirst' ? '高血安全起吼區間' : '常駐黑力起吼區間'}：${safeRoar} ～ ${effectiveCeiling} HP</b><br>
-       ${playMode === 'roarFirst' ? `血量在此區間按龍咆哮，先扣 ${roarCost} HP 後立刻掉入 ${zerkRawMax} 以下觸發滿額黑力傷害，且絕不會被撞死！` : `血量全程維持在 ${zerkRawMax} 以下，所有技能與平砍皆常駐黑力。`}</div>`;
+  document.getElementById('adviceBox').innerHTML = safeRoar > zerkMax
+    ? `<div class="alert">⚠️ 安全起吼線（${safeRoar}）已超過黑力上限（${zerkMax}），此圖請改用槍連擊/無雙矛，或開減傷降低怪物傷害！</div>`
+    : `<div class="okbox">✅ <b>安全起吼區間：${safeRoar} ～ ${zerkMax} HP</b><br>
+       因為寵物會在出傷前搶先補血，下表已把補滿後最高血量鎖死在 <b>${zerkMax} HP</b> 以內，就算連喝好幾瓶也 100% 觸發黑力！</div>`;
 
   let tHtml = '';
   potions.forEach(p => {
-    const maxTrig = effectiveCeiling - p.heal - bBuf;
+    const maxTrig = zerkMax - p.heal - bBuf;
     const pct = hbHp > 0 ? Math.min(95, Math.floor(maxTrig / hbHp * 100)) : 0;
     const trigHp = Math.floor(hbHp * pct / 100);
-    const afterHp = (trigHp > 0 ? trigHp - 1 : 0) + p.heal;
-    let tag = '<span class="warn">可用</span>';
-    if (pct < 10 || maxTrig <= 0) tag = '<span class="danger">補過頭斷黑力</span>';
-    else if (trigHp < surviveMin) tag = '<span class="warn">拉桿偏低防連撞</span>';
-    else if (p.heal >= roarCost * 0.85) tag = '<span class="safe">★ 最推薦</span>';
+    const stopLow = trigHp;
+    const stopHigh = (trigHp > 0 ? trigHp - 1 : 0) + p.heal;
 
-    tHtml += `<tr><td><b>${p.name}</b></td><td>+${p.heal}</td><td>${maxTrig > 0 ? maxTrig : '-'}</td>
-      <td>${pct >= 10 ? `<b class="safe">${pct}%</b> (${trigHp})` : '-'}</td>
-      <td>${pct >= 10 ? afterHp : '-'}</td><td>${tag}</td></tr>`;
+    let tag = '<span class="safe">★ 安全可用</span>';
+    if (pct < 10 || maxTrig <= 0) {
+      tag = '<span class="danger">補量過大（必斷黑力）</span>';
+    } else if (trigHp < surviveMin) {
+      tag = '<span class="warn">拉桿偏低（注意防撞）</span>';
+    } else if (p.name === "棒棒冰" || p.name === "豚骨拉麵") {
+      tag = '<span class="safe">★ 最推薦（拉桿高最安全）</span>';
+    }
+
+    tHtml += `<tr>
+      <td><b>${p.name}</b></td>
+      <td>+${p.heal}</td>
+      <td>${pct >= 10 ? `<b class="safe">${pct}%</b> (${trigHp})` : '<span class="danger">不適用</span>'}</td>
+      <td>${pct >= 10 ? `<b>${stopLow} ～ ${stopHigh} HP</b>` : '-'}</td>
+      <td>${tag}</td>
+    </tr>`;
   });
   document.getElementById('potionTable').innerHTML = tHtml;
 }
