@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>黑騎士壓血計算機</title>
+<style>
+  body { background:#12151c; color:#e6edf3; font-family:"Microsoft JhengHei",sans-serif; padding:20px; max-width:840px; margin:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-bottom:15px; }
+  .card { background:#1c212b; border:1px solid #2e3646; border-radius:8px; padding:15px; margin-bottom:15px; }
+  h2 { font-size:1rem; color:#58a6ff; margin:0 0 10px; border-bottom:1px solid #2e3646; padding-bottom:6px; }
+  label { display:block; font-size:0.85rem; color:#8b949e; margin:8px 0 4px; }
+  input, select { width:100%; padding:8px; border-radius:5px; border:1px solid #2e3646; background:#0d1117; color:#fff; box-sizing:border-box; }
+  input[readonly] { background:#161b22; color:#58a6ff; font-weight:bold; border-style:dashed; cursor:not-allowed; }
+  .hint { font-size:0.78rem; color:#3fb950; margin-top:4px; line-height:1.4; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:12px; }
+  .box { background:#0d1117; border:1px solid #2e3646; border-radius:6px; padding:10px; }
+  .val { font-size:1.2rem; font-weight:bold; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  th, td { padding:9px 6px; text-align:left; border-bottom:1px solid #2e3646; }
+  .safe { color:#3fb950; } .warn { color:#d29922; } .danger { color:#f85149; } .accent { color:#f78166; }
+  .alert { background:rgba(248,81,73,0.12); border-left:4px solid #f85149; padding:10px; border-radius:4px; font-size:0.88rem; }
+  .okbox { background:rgba(63,185,80,0.12); border-left:4px solid #3fb950; padding:10px; border-radius:4px; font-size:0.88rem; }
+</style>
+</head>
+<body>
+  <h2>⚔️ 黑騎士壓血與寵物回血計算機</h2>
+  <div class="grid">
+    <div class="card">
+      <h2>1. 角色血量（100% 精準公式）</h2>
+      <label>聖火前最大 HP（面板總血量）</label><input type="number" id="baseHp" value="11828">
+      <label>裝備＋寵物額外加血 HP</label><input type="number" id="equipHp" value="122">
+      <label>轉生初始最大 HP 加成</label>
+      <select id="rebirthPct">
+        <option value="0">無轉生加成（0%）</option>
+        <option value="6">轉生 1 次（+6%）</option>
+        <option value="12" selected>轉生 2 次（+12%）</option>
+        <option value="18">轉生 3 次（+18%）</option>
+      </select>
+      <label>聖火後最大 HP（自動計算）</label><input type="number" id="hbHp" readonly>
+      <div class="hint" id="hbStatus"></div>
+    </div>
+    <div class="card">
+      <h2>2. 怪物與技能設定</h2>
+      <label>怪物單次最高傷害</label><input type="number" id="mobDmg" value="3782">
+      <label>黑暗力量上限（%）</label><input type="number" id="zerkPct" value="55">
+      <label>龍咆哮規則（固定）</label><input type="text" value="聖火前 50% 門檻 / 消耗 30%" readonly>
+    </div>
+    <div class="card">
+      <h2>3. 實戰安全緩衝微調</h2>
+      <label>防秒殺保命緩衝（HP）</label><input type="number" id="surviveBuffer" value="300">
+      <label>闇靈治癒防溢補緩衝（HP）</label><input type="number" id="beholderBuffer" value="200">
+    </div>
+  </div>
+  <div class="card"><h2>4. 關鍵生死線計算結果</h2><div class="stats" id="summaryGrid"></div><div id="adviceBox"></div></div>
+  <div class="card"><h2>5. 藥水與寵物拉桿推薦表</h2>
+    <table><thead><tr><th>藥水</th><th>補量</th><th>最高觸發血量</th><th>建議拉桿</th><th>補滿最高血量</th><th>評估</th></tr></thead><tbody id="potionTable"></tbody></table>
+  </div>
+<script>
+const potions = [
+  { name: "烤鰻魚", heal: 1000 },
+  { name: "豚骨拉麵", heal: 1500 },
+  { name: "棒棒冰", heal: 2000 },
+  { name: "乳酪", heal: 4000 },
+  { name: "馴鹿奶", heal: 5000 }
+];
+
+function calc() {
+  const baseHp = +document.getElementById('baseHp').value || 0;
+  const equipHp = +document.getElementById('equipHp').value || 0;
+  const rebirthPct = +document.getElementById('rebirthPct').value || 0;
+
+  const pureHp = Math.max(0, (baseHp - equipHp) / (1 + rebirthPct / 100));
+  const hbBonus = Math.round((pureHp + equipHp) * 0.6);
+  const hbHp = Math.min(30000, baseHp + hbBonus);
+
+  document.getElementById('hbHp').value = hbHp;
+  document.getElementById('hbStatus').textContent = `原始純血 ${Math.round(pureHp)} + 裝備 ${equipHp} → 聖火實加 +${hbBonus} HP`;
+
+  const mobDmg = +document.getElementById('mobDmg').value || 0;
+  const zerkPct = +document.getElementById('zerkPct').value || 55;
+  const sBuf = +document.getElementById('surviveBuffer').value || 0;
+  const bBuf = +document.getElementById('beholderBuffer').value || 0;
+
+  const zerkMax = Math.floor(hbHp * zerkPct / 100);
+  const roarMin = Math.ceil(baseHp * 0.5);
+  const roarCost = Math.floor(baseHp * 0.3);
+  const surviveMin = mobDmg + sBuf;
+  const safeRoar = Math.max(roarMin, roarCost + surviveMin);
+
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="box"><small>黑力上限</small><div class="val accent">${zerkMax} HP</div></div>
+    <div class="box"><small>單次防秒殺底線</small><div class="val danger">${surviveMin} HP</div></div>
+    <div class="box"><small>咆哮門檻 / 消耗</small><div class="val warn">${roarMin} / -${roarCost}</div></div>
+    <div class="box"><small>安全起吼血量</small><div class="val safe">${safeRoar} HP</div></div>
+  `;
+
+  document.getElementById('adviceBox').innerHTML = safeRoar > zerkMax
+    ? `<div class="alert">⚠️ 安全起吼線（${safeRoar}）已超過黑力上限（${zerkMax}），此圖請改用槍連擊/無雙矛！</div>`
+    : `<div class="okbox">✅ 安全起吼控血區間：<b>${safeRoar} ～ ${zerkMax} HP</b></div>`;
+
+  let tHtml = '';
+  potions.forEach(p => {
+    const maxTrig = zerkMax - p.heal - bBuf;
+    const pct = hbHp > 0 ? Math.floor(maxTrig / hbHp * 100) : 0;
+    const trigHp = Math.floor(hbHp * pct / 100);
+    const afterHp = (trigHp > 0 ? trigHp - 1 : 0) + p.heal;
+    let tag = '<span class="warn">可用</span>';
+    if (pct < 10 || maxTrig <= 0) tag = '<span class="danger">補過頭斷黑力</span>';
+    else if (trigHp < surviveMin) tag = '<span class="warn">拉桿偏低防連撞</span>';
+    else if (p.heal >= roarCost * 0.85) tag = '<span class="safe">★ 最推薦</span>';
+
+    tHtml += `<tr><td><b>${p.name}</b></td><td>+${p.heal}</td><td>${maxTrig > 0 ? maxTrig : '-'}</td>
+      <td>${pct >= 10 ? `<b class="safe">${pct}%</b> (${trigHp})` : '-'}</td>
+      <td>${pct >= 10 ? afterHp : '-'}</td><td>${tag}</td></tr>`;
+  });
+  document.getElementById('potionTable').innerHTML = tHtml;
+}
+
+document.querySelectorAll('input:not([readonly]), select').forEach(el => el.oninput = calc);
+calc();
+</script>
+</body>
+</html>
