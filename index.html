@@ -23,7 +23,7 @@
 </style>
 </head>
 <body>
-  <h2>⚔️ 黑騎士壓血與寵物回血計算機</h2>
+  <h2>⚔️ 黑騎士壓血計算機</h2>
   <div class="grid">
     <div class="card">
       <h2>1. 角色血量（100% 精準公式）</h2>
@@ -43,8 +43,8 @@
       <h2>2. 怪物與輸出流派設定</h2>
       <label>輸出控血模式</label>
       <select id="playMode">
-        <option value="roarFirst" selected>龍咆哮先扣血後出傷（高血安全流）</option>
-        <option value="alwaysZerk">傳統全程壓血（平砍/槍連常駐黑力）</option>
+        <option value="roarFirst" selected>龍咆哮先扣血後出傷（全程吼）</option>
+        <option value="alwaysZerk">全程壓血（槍連/吼常駐黑力）</option>
       </select>
       <label>怪物單次最高傷害</label><input type="number" id="mobDmg" value="3782">
       <label>黑暗力量上限（%）</label><input type="number" id="zerkPct" value="55">
@@ -55,7 +55,7 @@
       <label>闇靈治癒防溢補緩衝（HP）</label><input type="number" id="beholderBuffer" value="200">
     </div>
   </div>
-  <div class="card"><h2>4. 關鍵生死線計算結果</h2><div class="stats" id="summaryGrid"></div><div id="adviceBox"></div></div>
+  <div class="card"><h2>4. 計算結果</h2><div class="stats" id="summaryGrid"></div><div id="adviceBox"></div></div>
   <div class="card"><h2>5. 藥水與寵物拉桿推薦表</h2>
     <table><thead><tr><th>藥水</th><th>補量</th><th>最高觸發血量</th><th>建議拉桿</th><th>補滿最高血量</th><th>評估</th></tr></thead><tbody id="potionTable"></tbody></table>
   </div>
