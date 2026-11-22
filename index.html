@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <title>黑騎士壓血計算機</title>
 <style>
-  body { background:#12151c; color:#e6edf3; font-family:"Microsoft JhengHei",sans-serif; padding:20px; max-width:840px; margin:auto; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-bottom:15px; }
+  body { background:#12151c; color:#e6edf3; font-family:"Microsoft JhengHei",sans-serif; padding:20px; max-width:860px; margin:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin-bottom:15px; }
   .card { background:#1c212b; border:1px solid #2e3646; border-radius:8px; padding:15px; margin-bottom:15px; }
   h2 { font-size:1rem; color:#58a6ff; margin:0 0 10px; border-bottom:1px solid #2e3646; padding-bottom:6px; }
   label { display:block; font-size:0.85rem; color:#8b949e; margin:8px 0 4px; }
   input, select { width:100%; padding:8px; border-radius:5px; border:1px solid #2e3646; background:#0d1117; color:#fff; box-sizing:border-box; }
   input[readonly] { background:#161b22; color:#58a6ff; font-weight:bold; border-style:dashed; cursor:not-allowed; }
   .hint { font-size:0.78rem; color:#3fb950; margin-top:4px; line-height:1.4; }
-  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:12px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:10px; margin-bottom:12px; }
   .box { background:#0d1117; border:1px solid #2e3646; border-radius:6px; padding:10px; }
-  .val { font-size:1.2rem; font-weight:bold; margin-top:4px; }
+  .val { font-size:1.15rem; font-weight:bold; margin-top:4px; }
   table { width:100%; border-collapse:collapse; font-size:0.9rem; }
   th, td { padding:9px 6px; text-align:left; border-bottom:1px solid #2e3646; }
   .safe { color:#3fb950; } .warn { color:#d29922; } .danger { color:#f85149; } .accent { color:#f78166; }
   .alert { background:rgba(248,81,73,0.12); border-left:4px solid #f85149; padding:10px; border-radius:4px; font-size:0.88rem; }
-  .okbox { background:rgba(63,185,80,0.12); border-left:4px solid #3fb950; padding:10px; border-radius:4px; font-size:0.88rem; }
+  .okbox { background:rgba(63,185,80,0.12); border-left:4px solid #3fb950; padding:10px; border-radius:4px; font-size:0.88rem; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -40,10 +40,14 @@
       <div class="hint" id="hbStatus"></div>
     </div>
     <div class="card">
-      <h2>2. 怪物與技能設定</h2>
+      <h2>2. 怪物與輸出流派設定</h2>
+      <label>輸出控血模式</label>
+      <select id="playMode">
+        <option value="roarFirst" selected>龍咆哮先扣血後出傷（高血安全流）</option>
+        <option value="alwaysZerk">傳統全程壓血（平砍/槍連常駐黑力）</option>
+      </select>
       <label>怪物單次最高傷害</label><input type="number" id="mobDmg" value="3782">
       <label>黑暗力量上限（%）</label><input type="number" id="zerkPct" value="55">
-      <label>龍咆哮規則（固定）</label><input type="text" value="聖火前 50% 門檻 / 消耗 30%" readonly>
     </div>
     <div class="card">
       <h2>3. 實戰安全緩衝微調</h2>
@@ -68,6 +72,7 @@ function calc() {
   const baseHp = +document.getElementById('baseHp').value || 0;
   const equipHp = +document.getElementById('equipHp').value || 0;
   const rebirthPct = +document.getElementById('rebirthPct').value || 0;
+  const playMode = document.getElementById('playMode').value;
 
   const pureHp = Math.max(0, (baseHp - equipHp) / (1 + rebirthPct / 100));
   const hbBonus = Math.round((pureHp + equipHp) * 0.6);
@@ -81,27 +86,29 @@ function calc() {
   const sBuf = +document.getElementById('surviveBuffer').value || 0;
   const bBuf = +document.getElementById('beholderBuffer').value || 0;
 
-  const zerkMax = Math.floor(hbHp * zerkPct / 100);
+  const zerkRawMax = Math.floor(hbHp * zerkPct / 100);
   const roarMin = Math.ceil(baseHp * 0.5);
   const roarCost = Math.floor(baseHp * 0.3);
+  const effectiveCeiling = playMode === 'roarFirst' ? (zerkRawMax + roarCost) : zerkRawMax;
   const surviveMin = mobDmg + sBuf;
   const safeRoar = Math.max(roarMin, roarCost + surviveMin);
 
   document.getElementById('summaryGrid').innerHTML = `
-    <div class="box"><small>黑力上限</small><div class="val accent">${zerkMax} HP</div></div>
+    <div class="box"><small>${playMode === 'roarFirst' ? '吼前觸發黑力上限' : '常駐黑力上限'}</small><div class="val accent">${effectiveCeiling} HP</div></div>
     <div class="box"><small>單次防秒殺底線</small><div class="val danger">${surviveMin} HP</div></div>
     <div class="box"><small>咆哮門檻 / 消耗</small><div class="val warn">${roarMin} / -${roarCost}</div></div>
     <div class="box"><small>安全起吼血量</small><div class="val safe">${safeRoar} HP</div></div>
   `;
 
-  document.getElementById('adviceBox').innerHTML = safeRoar > zerkMax
-    ? `<div class="alert">⚠️ 安全起吼線（${safeRoar}）已超過黑力上限（${zerkMax}），此圖請改用槍連擊/無雙矛！</div>`
-    : `<div class="okbox">✅ 安全起吼控血區間：<b>${safeRoar} ～ ${zerkMax} HP</b></div>`;
+  document.getElementById('adviceBox').innerHTML = safeRoar > effectiveCeiling
+    ? `<div class="alert">⚠️ 安全起吼線（${safeRoar}）已超過上限（${effectiveCeiling}），此圖請改用槍連擊/無雙矛！</div>`
+    : `<div class="okbox">✅ <b>${playMode === 'roarFirst' ? '高血安全起吼區間' : '常駐黑力起吼區間'}：${safeRoar} ～ ${effectiveCeiling} HP</b><br>
+       ${playMode === 'roarFirst' ? `血量在此區間按龍咆哮，先扣 ${roarCost} HP 後立刻掉入 ${zerkRawMax} 以下觸發滿額黑力傷害，且絕不會被撞死！` : `血量全程維持在 ${zerkRawMax} 以下，所有技能與平砍皆常駐黑力。`}</div>`;
 
   let tHtml = '';
   potions.forEach(p => {
-    const maxTrig = zerkMax - p.heal - bBuf;
-    const pct = hbHp > 0 ? Math.floor(maxTrig / hbHp * 100) : 0;
+    const maxTrig = effectiveCeiling - p.heal - bBuf;
+    const pct = hbHp > 0 ? Math.min(95, Math.floor(maxTrig / hbHp * 100)) : 0;
     const trigHp = Math.floor(hbHp * pct / 100);
     const afterHp = (trigHp > 0 ? trigHp - 1 : 0) + p.heal;
     let tag = '<span class="warn">可用</span>';
